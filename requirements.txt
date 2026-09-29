@@ -1,0 +1,12 @@
+langgraph>=0.2.50
+langchain-core>=0.3.0
+langchain-openai>=0.2.0
+langchain-text-splitters>=0.3.0
+pinecone>=5.0.0
+pypdf>=4.0.0
+requests>=2.31.0
+python-dotenv>=1.0.0
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+pydantic>=2.5.0
+streamlit>=1.35.0

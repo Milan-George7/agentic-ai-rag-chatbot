@@ -1,0 +1,4 @@
+# Extra packages for LLM_PROVIDER=groq and EMBEDDING_PROVIDER=huggingface
+langchain-groq>=0.2.0
+langchain-huggingface>=0.1.0
+sentence-transformers>=3.0.0
