@@ -1,4 +1,4 @@
-# Agentic AI eBook Chatbot
+# Agentic AI RAG Chatbot
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/downloads/)
 [![LangGraph](https://img.shields.io/badge/LangGraph-pipeline-1C3C3C)](https://langchain-ai.github.io/langgraph/)
