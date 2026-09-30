@@ -12,6 +12,4 @@ Agentic AI eBook; query 6 is deliberately out-of-scope and must be refused.
 | 5 | Which industries or use cases does the eBook discuss? | Answered from the use-case sections |
 | 6 | What is the capital of France? | `answered: false` + "I couldn't find that in the eBook..." |
 
-> I couldn't download the PDF while writing this, so the exact wording of answers is not pre-recorded here.
-> Run `python -m scripts.run_samples` after ingestion to generate real outputs into `docs/sample_outputs.md`,
-> and adjust queries 1–5 to match the eBook's actual table of contents if any of them get refused.
+
