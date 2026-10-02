@@ -2,6 +2,7 @@
 
 START -> retrieve -> (score >= MIN_SCORE?) -yes-> generate -> verify -> END
                                            -no--> refuse ---------------> END
+verify -> (unsupported claims, first time) -> revise -> verify   (one repair attempt before refusing)
 """
 from functools import lru_cache
 from typing import TypedDict
@@ -21,7 +22,13 @@ Rules:
 1. Answer ONLY using the numbered context excerpts provided. Never use outside knowledge.
 2. If the excerpts do not contain the answer, reply exactly: {NOT_FOUND}
 3. Be concise. Cite the excerpts you used like [1], [2].
-4. Do not speculate, and do not add facts that are not in the excerpts."""
+4. Do not speculate, and do not add facts that are not in the excerpts.
+5. Do not add counts, step numbers, labels or structure (e.g. "three steps", "a four-part framework")
+   unless the excerpts state them explicitly. Describe only what the excerpts say."""
+
+REVISE_SYSTEM = """You fix a draft answer so that it is fully supported by the context.
+Rewrite the draft: remove or rephrase every unsupported claim listed, keep the supported content and the
+[n] citations, and add nothing new. If almost nothing is supported, reply exactly: """ + NOT_FOUND
 
 VERIFY_SYSTEM = """You are a strict fact-checker. Given CONTEXT and an ANSWER, decide whether
 every factual claim in the ANSWER is directly supported by the CONTEXT. Ignore citation markers
@@ -38,10 +45,15 @@ class RAGState(TypedDict, total=False):
     grounded: bool
     confidence: float
     reason: str
+    needs_revision: bool
+    unsupported: list[str]
+    revisions: int
 
 
 class GroundingCheck(BaseModel):
     supported: bool = Field(description="True only if all claims in the answer are supported by the context")
+    unsupported_claims: list[str] = Field(
+        default_factory=list, description="Claims in the answer that the context does not support")
     reason: str = Field(description="One-sentence justification")
 
 
@@ -109,16 +121,38 @@ def verify(state: RAGState) -> RAGState:
     conf = _calibrate(state["retrieval_score"])
     if answer.startswith(NOT_FOUND[:30]):  # model itself declined
         return {"answer": NOT_FOUND, "answered": False, "grounded": True, "confidence": conf,
-                "reason": "The model found no answer in the retrieved context."}
+                "needs_revision": False, "reason": "The model found no answer in the retrieved context."}
     check = _llm().with_structured_output(GroundingCheck).invoke([
         SystemMessage(content=VERIFY_SYSTEM),
         HumanMessage(content=f"CONTEXT:\n{_format_context(state['contexts'])}\n\nANSWER:\n{answer}"),
     ])
     if check.supported:
-        return {"answered": True, "grounded": True, "confidence": conf, "reason": check.reason}
-    return {"answer": NOT_FOUND, "answered": False, "grounded": False,
+        reason = check.reason
+        if state.get("revisions", 0):
+            reason = "Passed after one revision removing unsupported claims. " + reason
+        return {"answered": True, "grounded": True, "confidence": conf,
+                "needs_revision": False, "reason": reason}
+    if state.get("revisions", 0) < 1:  # try one repair before giving up
+        return {"needs_revision": True, "unsupported": check.unsupported_claims or [check.reason]}
+    return {"answer": NOT_FOUND, "answered": False, "grounded": False, "needs_revision": False,
             "confidence": round(conf * 0.5, 3),
             "reason": f"Draft answer failed grounding check: {check.reason}"}
+
+
+def revise(state: RAGState) -> RAGState:
+    problems = "\n".join(f"- {c}" for c in state.get("unsupported", []))
+    msg = _llm().invoke([
+        SystemMessage(content=REVISE_SYSTEM),
+        HumanMessage(content=(f"Context:\n{_format_context(state['contexts'])}\n\n"
+                              f"Question: {state['question']}\n\nDraft answer:\n{state['answer']}\n\n"
+                              f"Unsupported claims to remove or fix:\n{problems}")),
+    ])
+    return {"answer": msg.content.strip(), "revisions": state.get("revisions", 0) + 1,
+            "needs_revision": False}
+
+
+def route_after_verify(state: RAGState) -> str:
+    return "revise" if state.get("needs_revision") else "done"
 
 
 # ---------- graph ----------
@@ -129,9 +163,11 @@ def get_graph():
     g.add_node("generate", generate)
     g.add_node("verify", verify)
     g.add_node("refuse", refuse)
+    g.add_node("revise", revise)
     g.add_edge(START, "retrieve")
     g.add_conditional_edges("retrieve", route_after_retrieve, {"generate": "generate", "refuse": "refuse"})
     g.add_edge("generate", "verify")
-    g.add_edge("verify", END)
+    g.add_conditional_edges("verify", route_after_verify, {"revise": "revise", "done": END})
+    g.add_edge("revise", "verify")
     g.add_edge("refuse", END)
     return g.compile()
