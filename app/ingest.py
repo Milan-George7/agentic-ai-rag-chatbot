@@ -1,9 +1,3 @@
-"""Ingestion: download PDF -> extract text per page -> chunk -> embed -> upsert to Pinecone.
-
-Usage:
-    python -m app.ingest            # ingest (idempotent: same chunk IDs are overwritten)
-    python -m app.ingest --reset    # wipe the namespace first
-"""
 import argparse
 import io
 import re
