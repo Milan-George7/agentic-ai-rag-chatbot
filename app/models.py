@@ -1,7 +1,6 @@
-"""Model factories so embeddings / LLM can be swapped via .env (openai | huggingface | groq)."""
 from functools import lru_cache
 
-from app.config import settings
+from app.config import settings 
 
 
 @lru_cache(maxsize=1)
