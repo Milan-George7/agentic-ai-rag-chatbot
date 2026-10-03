@@ -1,9 +1,3 @@
-"""LangGraph RAG pipeline with a strict grounding guard.
-
-START -> retrieve -> (score >= MIN_SCORE?) -yes-> generate -> verify -> END
-                                           -no--> refuse ---------------> END
-verify -> (unsupported claims, first time) -> revise -> verify   (one repair attempt before refusing)
-"""
 from functools import lru_cache
 from typing import TypedDict
 
