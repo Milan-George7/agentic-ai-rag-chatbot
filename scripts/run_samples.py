@@ -1,6 +1,3 @@
-"""Run the sample queries against the live pipeline and write docs/sample_outputs.md.
-Usage: python -m scripts.run_samples
-"""
 from pathlib import Path
 
 from app.rag_graph import get_graph
